@@ -34,6 +34,7 @@ export interface IStorage {
   
   // Company operations
   getCompany(id: string): Promise<Company | undefined>;
+  getAllCompanies(): Promise<Company[]>;
   createCompany(company: InsertCompany): Promise<Company>;
   
   // Station operations
@@ -127,6 +128,10 @@ export class DatabaseStorage implements IStorage {
   async getCompany(id: string): Promise<Company | undefined> {
     const [company] = await db.select().from(companies).where(eq(companies.id, id));
     return company;
+  }
+
+  async getAllCompanies(): Promise<Company[]> {
+    return await db.select().from(companies);
   }
 
   async createCompany(company: InsertCompany): Promise<Company> {

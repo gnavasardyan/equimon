@@ -21,6 +21,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Registration routes
+  app.get('/api/v1/companies', isAuthenticated, async (req: any, res) => {
+    try {
+      const companies = await storage.getAllCompanies();
+      res.json(companies);
+    } catch (error) {
+      console.error("Error fetching companies:", error);
+      res.status(500).json({ message: "Failed to fetch companies" });
+    }
+  });
+
+  app.post('/api/v1/auth/complete-registration', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { companyId, role, newCompanyName } = req.body;
+
+      if (!role || !['admin', 'operator', 'monitor'].includes(role)) {
+        return res.status(400).json({ message: "Invalid role specified" });
+      }
+
+      let finalCompanyId = companyId;
+
+      // Create new company if needed
+      if (newCompanyName && !companyId) {
+        const newCompany = await storage.createCompany({
+          name: newCompanyName,
+          licenseType: 'basic',
+          maxStations: 10,
+          isActive: true
+        });
+        finalCompanyId = newCompany.id;
+      }
+
+      if (!finalCompanyId) {
+        return res.status(400).json({ message: "Company ID or new company name required" });
+      }
+
+      // Update user with company and role
+      const updatedUser = await storage.updateUser(userId, {
+        companyId: finalCompanyId,
+        role,
+        updatedAt: new Date()
+      });
+
+      res.json(updatedUser);
+    } catch (error) {
+      console.error("Error completing registration:", error);
+      res.status(500).json({ message: "Failed to complete registration" });
+    }
+  });
+
   // Dashboard routes
   app.get('/api/v1/dashboard/stats', isAuthenticated, async (req: any, res) => {
     try {
