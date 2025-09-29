@@ -156,6 +156,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Station update route
+  app.put('/api/v1/stations/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.companyId) {
+        return res.status(400).json({ message: "User not associated with a company" });
+      }
+
+      if (user.role === 'monitor') {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+
+      const { id } = req.params;
+      const station = await storage.getStation(id);
+      
+      if (!station || station.companyId !== user.companyId) {
+        return res.status(404).json({ message: "Station not found" });
+      }
+
+      const updateData = insertStationSchema.partial().parse(req.body);
+      const updatedStation = await storage.updateStation(id, updateData);
+      res.json(updatedStation);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid input", errors: error.errors });
+      }
+      console.error("Error updating station:", error);
+      res.status(500).json({ message: "Failed to update station" });
+    }
+  });
+
+  // Station delete route (admin only)
+  app.delete('/api/v1/stations/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.companyId) {
+        return res.status(400).json({ message: "User not associated with a company" });
+      }
+
+      if (user.role !== 'admin') {
+        return res.status(403).json({ message: "Only administrators can delete stations" });
+      }
+
+      const { id } = req.params;
+      const station = await storage.getStation(id);
+      
+      if (!station || station.companyId !== user.companyId) {
+        return res.status(404).json({ message: "Station not found" });
+      }
+
+      // Note: In a real implementation, you might want to check if there are devices/data
+      // associated with this station and handle them appropriately
+      await storage.deleteStation(id);
+      res.json({ message: "Station deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting station:", error);
+      res.status(500).json({ message: "Failed to delete station" });
+    }
+  });
+
   // Device routes
   app.post('/api/v1/devices', isAuthenticated, async (req: any, res) => {
     try {

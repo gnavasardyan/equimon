@@ -42,6 +42,7 @@ export interface IStorage {
   getStationByUuid(uuid: string): Promise<Station | undefined>;
   createStation(station: InsertStation): Promise<Station>;
   updateStation(id: string, data: Partial<InsertStation>): Promise<Station>;
+  deleteStation(id: string): Promise<void>;
   activateStation(uuid: string, companyId: string): Promise<Station>;
   
   // Device operations
@@ -164,6 +165,10 @@ export class DatabaseStorage implements IStorage {
       .where(eq(stations.id, id))
       .returning();
     return updated;
+  }
+
+  async deleteStation(id: string): Promise<void> {
+    await db.delete(stations).where(eq(stations.id, id));
   }
 
   async activateStation(uuid: string, companyId: string): Promise<Station> {

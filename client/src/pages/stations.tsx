@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import Header from "@/components/layout/header";
 import Sidebar from "@/components/layout/sidebar";
 import StationCard from "@/components/station-card";
@@ -10,15 +11,96 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Search } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Plus, Search, Eye, Edit, Trash2 } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import type { Station } from "@shared/schema";
+
+const editStationSchema = z.object({
+  name: z.string().min(1, "Название обязательно"),
+  location: z.string().optional(),
+  metadata: z.object({
+    type: z.string().optional(),
+    floor: z.coerce.number().optional()
+  }).optional()
+});
+
+type EditStationForm = z.infer<typeof editStationSchema>;
 
 export default function Stations() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [viewingStation, setViewingStation] = useState<Station | null>(null);
+  const [editingStation, setEditingStation] = useState<Station | null>(null);
+  const [deletingStation, setDeletingStation] = useState<Station | null>(null);
+  const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const { user, isAuthenticated, isLoading } = useAuth();
   const { toast } = useToast();
+
+  const form = useForm<EditStationForm>({
+    resolver: zodResolver(editStationSchema),
+    defaultValues: {
+      name: "",
+      location: "",
+      metadata: { type: "", floor: undefined }
+    }
+  });
+
+  // Station update mutation
+  const updateStationMutation = useMutation({
+    mutationFn: async ({ stationId, data }: { stationId: string; data: EditStationForm }) => {
+      const response = await apiRequest('PUT', `/api/v1/stations/${stationId}`, data);
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/v1/stations"] });
+      toast({
+        title: "Успешно",
+        description: "Станция обновлена",
+      });
+      setEditDialogOpen(false);
+      setEditingStation(null);
+      form.reset();
+    },
+    onError: (error) => {
+      toast({
+        title: "Ошибка",
+        description: "Не удалось обновить станцию",
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Station delete mutation
+  const deleteStationMutation = useMutation({
+    mutationFn: async (stationId: string) => {
+      const response = await apiRequest('DELETE', `/api/v1/stations/${stationId}`);
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/v1/stations"] });
+      toast({
+        title: "Успешно",
+        description: "Станция удалена",
+      });
+      setDeleteDialogOpen(false);
+      setDeletingStation(null);
+    },
+    onError: (error) => {
+      toast({
+        title: "Ошибка",
+        description: "Не удалось удалить станцию",
+        variant: "destructive",
+      });
+    }
+  });
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -79,10 +161,8 @@ export default function Stations() {
   }) || [];
 
   const handleViewStation = (station: Station) => {
-    toast({
-      title: "Просмотр станции",
-      description: `Открытие деталей станции ${station.name}`,
-    });
+    setViewingStation(station);
+    setViewDialogOpen(true);
   };
 
   const handleEditStation = (station: Station) => {
@@ -94,10 +174,16 @@ export default function Stations() {
       });
       return;
     }
-    toast({
-      title: "Редактирование станции",
-      description: `Редактирование станции ${station.name}`,
+    setEditingStation(station);
+    form.reset({
+      name: station.name,
+      location: station.location || "",
+      metadata: {
+        type: station.metadata?.type || "",
+        floor: station.metadata?.floor
+      }
     });
+    setEditDialogOpen(true);
   };
 
   const handleDeleteStation = (station: Station) => {
@@ -109,10 +195,23 @@ export default function Stations() {
       });
       return;
     }
-    toast({
-      title: "Удаление станции",
-      description: `Удаление станции ${station.name}`,
-    });
+    setDeletingStation(station);
+    setDeleteDialogOpen(true);
+  };
+
+  const onEditSubmit = (data: EditStationForm) => {
+    if (editingStation) {
+      updateStationMutation.mutate({
+        stationId: editingStation.id,
+        data
+      });
+    }
+  };
+
+  const confirmDelete = () => {
+    if (deletingStation) {
+      deleteStationMutation.mutate(deletingStation.id);
+    }
   };
 
   return (
@@ -222,6 +321,183 @@ export default function Stations() {
           </div>
         </main>
       </div>
+
+      {/* View Station Dialog */}
+      <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Детали станции</DialogTitle>
+            <DialogDescription>
+              Подробная информация о базовой станции
+            </DialogDescription>
+          </DialogHeader>
+          {viewingStation && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium">Название</label>
+                  <p className="text-sm text-muted-foreground">{viewingStation.name}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">UUID</label>
+                  <p className="text-sm text-muted-foreground font-mono">{viewingStation.uuid}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Статус</label>
+                  <p className="text-sm text-muted-foreground">{viewingStation.status}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Последняя активность</label>
+                  <p className="text-sm text-muted-foreground">
+                    {viewingStation.lastSeen ? new Date(viewingStation.lastSeen).toLocaleString('ru-RU') : 'Никогда'}
+                  </p>
+                </div>
+                {viewingStation.location && (
+                  <div className="col-span-2">
+                    <label className="text-sm font-medium">Местоположение</label>
+                    <p className="text-sm text-muted-foreground">{viewingStation.location}</p>
+                  </div>
+                )}
+                {viewingStation.metadata && (
+                  <div className="col-span-2">
+                    <label className="text-sm font-medium">Метаданные</label>
+                    <pre className="text-sm text-muted-foreground bg-muted p-2 rounded">
+                      {JSON.stringify(viewingStation.metadata, null, 2)}
+                    </pre>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Station Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={(open) => {
+        if (!open) {
+          setEditDialogOpen(false);
+          setEditingStation(null);
+          form.reset();
+        }
+      }}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Редактировать станцию</DialogTitle>
+          </DialogHeader>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onEditSubmit)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Название</FormLabel>
+                    <FormControl>
+                      <Input {...field} data-testid="input-station-name" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="location"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Местоположение</FormLabel>
+                    <FormControl>
+                      <Input {...field} data-testid="input-station-location" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="metadata.type"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Тип</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="industrial, warehouse, laboratory, office" data-testid="input-station-type" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="metadata.floor"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Этаж</FormLabel>
+                    <FormControl>
+                      <Input 
+                        {...field}
+                        type="number"
+                        value={field.value ?? ""}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          field.onChange(value === "" ? undefined : value);
+                        }}
+                        data-testid="input-station-floor"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="flex justify-end space-x-2 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setEditDialogOpen(false);
+                    setEditingStation(null);
+                    form.reset();
+                  }}
+                  data-testid="button-cancel-edit"
+                >
+                  Отмена
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={updateStationMutation.isPending}
+                  data-testid="button-save-station"
+                >
+                  {updateStationMutation.isPending ? "Сохранение..." : "Сохранить"}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Station Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Удалить станцию?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Вы уверены, что хотите удалить станцию "{deletingStation?.name}"? 
+              Это действие нельзя отменить, и все связанные данные будут потеряны.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete">
+              Отмена
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              disabled={deleteStationMutation.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-confirm-delete"
+            >
+              {deleteStationMutation.isPending ? "Удаление..." : "Удалить"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
