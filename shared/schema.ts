@@ -14,7 +14,7 @@ import {
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// Session storage table (mandatory for Replit Auth)
+// Session storage table for custom authentication
 export const sessions = pgTable(
   "sessions",
   {
@@ -30,13 +30,13 @@ export const userRoleEnum = pgEnum('user_role', ['admin', 'operator', 'monitor']
 export const stationStatusEnum = pgEnum('station_status', ['active', 'inactive', 'error', 'pending']);
 export const alertLevelEnum = pgEnum('alert_level', ['info', 'warning', 'critical']);
 
-// Users table (mandatory for Replit Auth)
+// Users table for custom authentication
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  email: varchar("email").unique(),
+  email: varchar("email").unique().notNull(),
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
-  profileImageUrl: varchar("profile_image_url"),
+  passwordHash: varchar("password_hash").notNull(),
   role: userRoleEnum("role").default('monitor'),
   companyId: varchar("company_id").references(() => companies.id),
   isActive: boolean("is_active").default(true),
@@ -225,6 +225,22 @@ export const insertAlertRuleSchema = createInsertSchema(alertRules).omit({
   updatedAt: true,
 });
 
+// Authentication schemas
+export const userRegistrationSchema = z.object({
+  email: z.string().email("Введите корректный email"),
+  firstName: z.string().min(1, "Введите имя"),
+  lastName: z.string().min(1, "Введите фамилию"),
+  password: z.string().min(6, "Пароль должен быть не менее 6 символов"),
+  companyId: z.string().optional(),
+  newCompanyName: z.string().optional(),
+  role: z.enum(['admin', 'operator', 'monitor']).default('monitor'),
+});
+
+export const userLoginSchema = z.object({
+  email: z.string().email("Введите корректный email"),
+  password: z.string().min(1, "Введите пароль"),
+});
+
 // Types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
@@ -242,3 +258,6 @@ export type InsertDevice = z.infer<typeof insertDeviceSchema>;
 export type InsertSensorData = z.infer<typeof insertSensorDataSchema>;
 export type InsertAlert = z.infer<typeof insertAlertSchema>;
 export type InsertAlertRule = z.infer<typeof insertAlertRuleSchema>;
+
+export type UserRegistration = z.infer<typeof userRegistrationSchema>;
+export type UserLogin = z.infer<typeof userLoginSchema>;
