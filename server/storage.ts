@@ -23,12 +23,6 @@ import {
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, gte, lte, count, sql } from "drizzle-orm";
-import { nanoid } from "nanoid";
-
-// UUID generator for SQLite (since it doesn't have gen_random_uuid)
-function generateId(): string {
-  return nanoid();
-}
 
 export interface IStorage {
   // User operations (mandatory for Replit Auth)
@@ -89,10 +83,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async upsertUser(userData: UpsertUser): Promise<User> {
-    const userWithId = { ...userData, id: userData.id || generateId() };
     const [user] = await db
       .insert(users)
-      .values(userWithId)
+      .values(userData)
       .onConflictDoUpdate({
         target: users.id,
         set: {
@@ -137,8 +130,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createCompany(company: InsertCompany): Promise<Company> {
-    const companyWithId = { ...company, id: generateId() };
-    const [created] = await db.insert(companies).values(companyWithId).returning();
+    const [created] = await db.insert(companies).values(company).returning();
     return created;
   }
 
@@ -162,8 +154,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createStation(station: InsertStation): Promise<Station> {
-    const stationWithId = { ...station, id: generateId() };
-    const [created] = await db.insert(stations).values(stationWithId).returning();
+    const [created] = await db.insert(stations).values(station).returning();
     return created;
   }
 
@@ -209,8 +200,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createDevice(device: InsertDevice): Promise<Device> {
-    const deviceWithId = { ...device, id: generateId() };
-    const [created] = await db.insert(devices).values(deviceWithId).returning();
+    const [created] = await db.insert(devices).values(device).returning();
     return created;
   }
 
@@ -225,8 +215,7 @@ export class DatabaseStorage implements IStorage {
 
   // Sensor data operations
   async insertSensorData(data: InsertSensorData): Promise<SensorData> {
-    const dataWithId = { ...data, id: generateId() };
-    const [created] = await db.insert(sensorData).values(dataWithId).returning();
+    const [created] = await db.insert(sensorData).values(data).returning();
     return created;
   }
 
@@ -285,8 +274,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createAlert(alert: InsertAlert): Promise<Alert> {
-    const alertWithId = { ...alert, id: generateId() };
-    const [created] = await db.insert(alerts).values(alertWithId).returning();
+    const [created] = await db.insert(alerts).values(alert).returning();
     return created;
   }
 
@@ -313,8 +301,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createAlertRule(rule: InsertAlertRule): Promise<AlertRule> {
-    const ruleWithId = { ...rule, id: generateId() };
-    const [created] = await db.insert(alertRules).values(ruleWithId).returning();
+    const [created] = await db.insert(alertRules).values(rule).returning();
     return created;
   }
 

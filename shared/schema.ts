@@ -1,120 +1,125 @@
 import { sql, relations } from 'drizzle-orm';
 import {
-  sqliteTable,
+  pgTable,
+  varchar,
   text,
+  timestamp,
+  jsonb,
+  boolean,
   integer,
-  real,
+  decimal,
   index,
-} from "drizzle-orm/sqlite-core";
+  pgEnum,
+} from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 // Session storage table (mandatory for Replit Auth)
-export const sessions = sqliteTable(
+export const sessions = pgTable(
   "sessions",
   {
-    sid: text("sid").primaryKey(),
-    sess: text("sess").notNull(), // JSON stored as text
-    expire: integer("expire", { mode: 'timestamp' }).notNull(),
+    sid: varchar("sid").primaryKey(),
+    sess: jsonb("sess").notNull(),
+    expire: timestamp("expire").notNull(),
   },
   (table) => [index("IDX_session_expire").on(table.expire)],
 );
 
-// User roles (no enums in SQLite, using text with check constraints)
-// Valid values: 'admin', 'operator', 'monitor'
-// Valid station statuses: 'active', 'inactive', 'error', 'pending'
-// Valid alert levels: 'info', 'warning', 'critical'
+// User roles enum
+export const userRoleEnum = pgEnum('user_role', ['admin', 'operator', 'monitor']);
+export const stationStatusEnum = pgEnum('station_status', ['active', 'inactive', 'error', 'pending']);
+export const alertLevelEnum = pgEnum('alert_level', ['info', 'warning', 'critical']);
 
 // Users table (mandatory for Replit Auth)
-export const users = sqliteTable("users", {
-  id: text("id").primaryKey(),
-  email: text("email").unique(),
-  firstName: text("first_name"),
-  lastName: text("last_name"),
-  profileImageUrl: text("profile_image_url"),
-  role: text("role").default('monitor').notNull(),
-  companyId: text("company_id").references(() => companies.id),
-  isActive: integer("is_active", { mode: 'boolean' }).default(true),
-  createdAt: integer("created_at", { mode: 'timestamp' }).default(sql`CURRENT_TIMESTAMP`),
-  updatedAt: integer("updated_at", { mode: 'timestamp' }).default(sql`CURRENT_TIMESTAMP`),
+export const users = pgTable("users", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  email: varchar("email").unique(),
+  firstName: varchar("first_name"),
+  lastName: varchar("last_name"),
+  profileImageUrl: varchar("profile_image_url"),
+  role: userRoleEnum("role").default('monitor'),
+  companyId: varchar("company_id").references(() => companies.id),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 // Companies table
-export const companies = sqliteTable("companies", {
-  id: text("id").primaryKey(),
-  name: text("name").notNull(),
-  licenseType: text("license_type").default('basic'),
+export const companies = pgTable("companies", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name").notNull(),
+  licenseType: varchar("license_type").default('basic'),
   maxStations: integer("max_stations").default(10),
-  isActive: integer("is_active", { mode: 'boolean' }).default(true),
-  createdAt: integer("created_at", { mode: 'timestamp' }).default(sql`CURRENT_TIMESTAMP`),
-  updatedAt: integer("updated_at", { mode: 'timestamp' }).default(sql`CURRENT_TIMESTAMP`),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 // Base stations table
-export const stations = sqliteTable("stations", {
-  id: text("id").primaryKey(),
-  uuid: text("uuid").unique().notNull(),
-  name: text("name").notNull(),
-  location: text("location"),
-  companyId: text("company_id").references(() => companies.id),
-  status: text("status").default('pending').notNull(),
-  lastSeen: integer("last_seen", { mode: 'timestamp' }),
-  metadata: text("metadata"), // JSON stored as text
-  createdAt: integer("created_at", { mode: 'timestamp' }).default(sql`CURRENT_TIMESTAMP`),
-  updatedAt: integer("updated_at", { mode: 'timestamp' }).default(sql`CURRENT_TIMESTAMP`),
+export const stations = pgTable("stations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  uuid: varchar("uuid").unique().notNull(),
+  name: varchar("name").notNull(),
+  location: varchar("location"),
+  companyId: varchar("company_id").references(() => companies.id),
+  status: stationStatusEnum("status").default('pending'),
+  lastSeen: timestamp("last_seen"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 // Devices table
-export const devices = sqliteTable("devices", {
-  id: text("id").primaryKey(),
-  stationId: text("station_id").references(() => stations.id).notNull(),
-  name: text("name").notNull(),
-  type: text("type").notNull(),
-  model: text("model"),
-  serialNumber: text("serial_number"),
-  status: text("status").default('active'),
-  metadata: text("metadata"), // JSON stored as text
-  createdAt: integer("created_at", { mode: 'timestamp' }).default(sql`CURRENT_TIMESTAMP`),
-  updatedAt: integer("updated_at", { mode: 'timestamp' }).default(sql`CURRENT_TIMESTAMP`),
+export const devices = pgTable("devices", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  stationId: varchar("station_id").references(() => stations.id).notNull(),
+  name: varchar("name").notNull(),
+  type: varchar("type").notNull(),
+  model: varchar("model"),
+  serialNumber: varchar("serial_number"),
+  status: varchar("status").default('active'),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 // Sensor data table
-export const sensorData = sqliteTable("sensor_data", {
-  id: text("id").primaryKey(),
-  deviceId: text("device_id").references(() => devices.id).notNull(),
-  parameter: text("parameter").notNull(),
-  value: real("value").notNull(),
-  unit: text("unit"),
-  timestamp: integer("timestamp", { mode: 'timestamp' }).default(sql`CURRENT_TIMESTAMP`),
-  metadata: text("metadata"), // JSON stored as text
+export const sensorData = pgTable("sensor_data", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  deviceId: varchar("device_id").references(() => devices.id).notNull(),
+  parameter: varchar("parameter").notNull(),
+  value: decimal("value").notNull(),
+  unit: varchar("unit"),
+  timestamp: timestamp("timestamp").defaultNow(),
+  metadata: jsonb("metadata"),
 });
 
 // Alerts table
-export const alerts = sqliteTable("alerts", {
-  id: text("id").primaryKey(),
-  stationId: text("station_id").references(() => stations.id),
-  deviceId: text("device_id").references(() => devices.id),
-  title: text("title").notNull(),
+export const alerts = pgTable("alerts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  stationId: varchar("station_id").references(() => stations.id),
+  deviceId: varchar("device_id").references(() => devices.id),
+  title: varchar("title").notNull(),
   description: text("description"),
-  level: text("level").default('info').notNull(),
-  isResolved: integer("is_resolved", { mode: 'boolean' }).default(false),
-  resolvedAt: integer("resolved_at", { mode: 'timestamp' }),
-  resolvedBy: text("resolved_by").references(() => users.id),
-  createdAt: integer("created_at", { mode: 'timestamp' }).default(sql`CURRENT_TIMESTAMP`),
+  level: alertLevelEnum("level").default('info'),
+  isResolved: boolean("is_resolved").default(false),
+  resolvedAt: timestamp("resolved_at"),
+  resolvedBy: varchar("resolved_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 // Alert rules table
-export const alertRules = sqliteTable("alert_rules", {
-  id: text("id").primaryKey(),
-  name: text("name").notNull(),
-  companyId: text("company_id").references(() => companies.id).notNull(),
-  parameter: text("parameter").notNull(),
-  condition: text("condition").notNull(), // >, <, =, etc.
-  threshold: real("threshold").notNull(),
-  level: text("level").default('warning').notNull(),
-  isActive: integer("is_active", { mode: 'boolean' }).default(true),
-  createdAt: integer("created_at", { mode: 'timestamp' }).default(sql`CURRENT_TIMESTAMP`),
-  updatedAt: integer("updated_at", { mode: 'timestamp' }).default(sql`CURRENT_TIMESTAMP`),
+export const alertRules = pgTable("alert_rules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name").notNull(),
+  companyId: varchar("company_id").references(() => companies.id).notNull(),
+  parameter: varchar("parameter").notNull(),
+  condition: varchar("condition").notNull(), // >, <, =, etc.
+  threshold: decimal("threshold").notNull(),
+  level: alertLevelEnum("level").default('warning'),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 // Relations
