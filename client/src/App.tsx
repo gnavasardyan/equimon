@@ -8,6 +8,12 @@ import Landing from "@/pages/landing";
 import Dashboard from "@/pages/dashboard";
 import Stations from "@/pages/stations";
 import Users from "@/pages/users";
+import Devices from "@/pages/devices";
+import Analytics from "@/pages/analytics";
+import Alerts from "@/pages/alerts";
+import ApiDocumentation from "@/pages/api";
+import Settings from "@/pages/settings";
+import Help from "@/pages/help";
 import NotFound from "@/pages/not-found";
 import type { User } from "@shared/schema";
 
@@ -36,7 +42,13 @@ function Router() {
         <>
           <Route path="/" component={Dashboard} />
           <Route path="/stations" component={Stations} />
+          <Route path="/devices" component={Devices} />
+          <Route path="/analytics" component={Analytics} />
+          <Route path="/alerts" component={Alerts} />
           <Route path="/users" component={Users} />
+          <Route path="/api" component={ApiDocumentation} />
+          <Route path="/settings" component={Settings} />
+          <Route path="/help" component={Help} />
         </>
       )}
       <Route component={NotFound} />
