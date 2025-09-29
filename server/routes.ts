@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
-import { insertStationSchema, insertDeviceSchema, insertSensorDataSchema, insertAlertRuleSchema } from "@shared/schema";
+import { insertStationSchema, insertDeviceSchema, insertSensorDataSchema, insertAlertRuleSchema, insertUserSchema } from "@shared/schema";
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -292,11 +292,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Insufficient permissions" });
       }
 
-      // This would require a new method in storage to get users by company
-      res.json({ message: "User management endpoint - to be implemented" });
+      if (!user.companyId) {
+        return res.status(400).json({ message: "User not associated with a company" });
+      }
+
+      const users = await storage.getUsersByCompany(user.companyId);
+      res.json(users);
     } catch (error) {
       console.error("Error fetching users:", error);
       res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
+  app.put('/api/v1/users/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+
+      const { id } = req.params;
+      const targetUser = await storage.getUser(id);
+      
+      if (!targetUser || targetUser.companyId !== user.companyId) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const updateData = insertUserSchema.partial().parse(req.body);
+      const updatedUser = await storage.updateUser(id, updateData);
+      res.json(updatedUser);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid input", errors: error.errors });
+      }
+      console.error("Error updating user:", error);
+      res.status(500).json({ message: "Failed to update user" });
+    }
+  });
+
+  app.patch('/api/v1/users/:id/deactivate', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+
+      const { id } = req.params;
+      const targetUser = await storage.getUser(id);
+      
+      if (!targetUser || targetUser.companyId !== user.companyId) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      if (targetUser.id === user.id) {
+        return res.status(400).json({ message: "Cannot deactivate yourself" });
+      }
+
+      const deactivatedUser = await storage.deactivateUser(id);
+      res.json(deactivatedUser);
+    } catch (error) {
+      console.error("Error deactivating user:", error);
+      res.status(500).json({ message: "Failed to deactivate user" });
     }
   });
 

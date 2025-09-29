@@ -1,15 +1,38 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { useQuery, useMutation, queryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import Header from "@/components/layout/header";
 import Sidebar from "@/components/layout/sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { Plus, Edit, UserX, Mail, Calendar } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+
+const editUserSchema = z.object({
+  firstName: z.string().min(1, "Имя обязательно"),
+  lastName: z.string().min(1, "Фамилия обязательна"),
+  email: z.string().email("Некорректный email"),
+  role: z.enum(["admin", "operator", "monitor"], {
+    required_error: "Выберите роль"
+  }),
+  isActive: z.boolean()
+});
+
+type EditUserForm = z.infer<typeof editUserSchema>;
 
 export default function Users() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<any>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
   const { user, isAuthenticated, isLoading } = useAuth();
   const { toast } = useToast();
 
@@ -70,36 +93,109 @@ export default function Users() {
     );
   }
 
-  // Mock users data for demonstration (in real app this would come from API)
-  const mockUsers = [
-    {
-      id: "1",
-      firstName: "Иван",
-      lastName: "Петров",
-      email: "ivan.petrov@company.com",
-      role: "admin",
-      isActive: true,
-      lastLogin: new Date().toISOString(),
+  // Fetch users data from API
+  const { data: users = [], isLoading: usersLoading, error: usersError } = useQuery({
+    queryKey: ['/api/v1/users'],
+    enabled: isAuthenticated && (user as any)?.role === 'admin'
+  });
+
+  // User update mutation
+  const updateUserMutation = useMutation({
+    mutationFn: async ({ userId, data }: { userId: string; data: any }) => {
+      return await apiRequest(`/api/v1/users/${userId}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+        headers: { 'Content-Type': 'application/json' }
+      });
     },
-    {
-      id: "2",
-      firstName: "Анна",
-      lastName: "Сидорова",
-      email: "anna.sidorova@company.com",
-      role: "operator",
-      isActive: true,
-      lastLogin: new Date(Date.now() - 86400000).toISOString(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/v1/users'] });
+      toast({
+        title: "Успешно",
+        description: "Данные пользователя обновлены",
+      });
     },
-    {
-      id: "3",
-      firstName: "Михаил",
-      lastName: "Козлов",
-      email: "mikhail.kozlov@company.com",
+    onError: (error) => {
+      toast({
+        title: "Ошибка",
+        description: "Не удалось обновить данные пользователя",
+        variant: "destructive",
+      });
+    }
+  });
+
+  // User deactivation mutation
+  const deactivateUserMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      return await apiRequest(`/api/v1/users/${userId}/deactivate`, {
+        method: 'PATCH'
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/v1/users'] });
+      toast({
+        title: "Успешно",
+        description: "Пользователь деактивирован",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Ошибка",
+        description: "Не удалось деактивировать пользователя",
+        variant: "destructive",
+      });
+    }
+  });
+
+  const form = useForm<EditUserForm>({
+    resolver: zodResolver(editUserSchema),
+    defaultValues: {
+      firstName: "",
+      lastName: "",
+      email: "",
       role: "monitor",
-      isActive: false,
-      lastLogin: new Date(Date.now() - 172800000).toISOString(),
-    },
-  ];
+      isActive: true
+    }
+  });
+
+  const handleEditUser = (userData: any) => {
+    setEditingUser(userData);
+    form.reset({
+      firstName: userData.firstName || "",
+      lastName: userData.lastName || "",
+      email: userData.email || "",
+      role: userData.role || "monitor",
+      isActive: userData.isActive ?? true
+    });
+    setEditDialogOpen(true);
+  };
+
+  const onEditSubmit = (data: EditUserForm) => {
+    if (editingUser) {
+      updateUserMutation.mutate(
+        { userId: editingUser.id, data },
+        {
+          onSuccess: () => {
+            setEditDialogOpen(false);
+            setEditingUser(null);
+            form.reset();
+          }
+        }
+      );
+    }
+  };
+
+  const handleDeactivateUser = (userData: any) => {
+    if (userData.id === (user as any)?.id) {
+      toast({
+        title: "Ошибка",
+        description: "Нельзя деактивировать самого себя",
+        variant: "destructive",
+      });
+      return;
+    }
+    deactivateUserMutation.mutate(userData.id);
+  };
 
   const getRoleBadgeColor = (role: string) => {
     switch (role) {
@@ -127,8 +223,8 @@ export default function Users() {
     }
   };
 
-  const formatLastLogin = (lastLogin: string) => {
-    const date = new Date(lastLogin);
+  const formatLastActivity = (updatedAt: string) => {
+    const date = new Date(updatedAt);
     const now = new Date();
     const diff = now.getTime() - date.getTime();
     const hours = Math.floor(diff / (1000 * 60 * 60));
@@ -168,11 +264,23 @@ export default function Users() {
             {/* Users List */}
             <Card>
               <CardHeader>
-                <CardTitle>Пользователи ({mockUsers.length})</CardTitle>
+                <CardTitle>
+                  Пользователи {usersLoading ? "..." : `(${users.length})`}
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4" data-testid="users-list">
-                  {mockUsers.map((userData) => (
+                {usersLoading ? (
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+                    <p className="mt-2 text-muted-foreground">Загрузка пользователей...</p>
+                  </div>
+                ) : usersError ? (
+                  <div className="text-center py-8 text-destructive">
+                    <p>Ошибка загрузки пользователей</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4" data-testid="users-list">
+                    {users.map((userData: any) => (
                     <div 
                       key={userData.id} 
                       className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors"
@@ -181,13 +289,13 @@ export default function Users() {
                       <div className="flex items-center space-x-4">
                         <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center">
                           <span className="text-lg font-semibold text-muted-foreground">
-                            {userData.firstName[0]}{userData.lastName[0]}
+                            {(userData.firstName || "?")[0]}{(userData.lastName || "?")[0]}
                           </span>
                         </div>
                         <div className="space-y-1">
                           <div className="flex items-center space-x-2">
                             <h3 className="font-semibold text-foreground">
-                              {userData.firstName} {userData.lastName}
+                              {userData.firstName || "Не указано"} {userData.lastName || ""}
                             </h3>
                             <Badge className={`${getRoleBadgeColor(userData.role)} border`}>
                               {getRoleText(userData.role)}
@@ -203,25 +311,129 @@ export default function Users() {
                             </div>
                             <div className="flex items-center space-x-1">
                               <Calendar className="w-4 h-4" />
-                              <span>Последний вход: {formatLastLogin(userData.lastLogin)}</span>
+                              <span>Последняя активность: {formatLastActivity(userData.updatedAt)}</span>
                             </div>
                           </div>
                         </div>
                       </div>
                       
                       <div className="flex items-center space-x-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          data-testid={`button-edit-user-${userData.id}`}
-                        >
-                          <Edit className="w-4 h-4" />
-                        </Button>
+                        <Dialog open={editDialogOpen && editingUser?.id === userData.id} onOpenChange={(open) => {
+                          if (!open) {
+                            setEditDialogOpen(false);
+                            setEditingUser(null);
+                            form.reset();
+                          }
+                        }}>
+                          <DialogTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleEditUser(userData)}
+                              data-testid={`button-edit-user-${userData.id}`}
+                            >
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="sm:max-w-[425px]">
+                            <DialogHeader>
+                              <DialogTitle>Редактировать пользователя</DialogTitle>
+                            </DialogHeader>
+                            <Form {...form}>
+                              <form onSubmit={form.handleSubmit(onEditSubmit)} className="space-y-4">
+                                <FormField
+                                  control={form.control}
+                                  name="firstName"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Имя</FormLabel>
+                                      <FormControl>
+                                        <Input {...field} data-testid="input-first-name" />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                                <FormField
+                                  control={form.control}
+                                  name="lastName"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Фамилия</FormLabel>
+                                      <FormControl>
+                                        <Input {...field} data-testid="input-last-name" />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                                <FormField
+                                  control={form.control}
+                                  name="email"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Email</FormLabel>
+                                      <FormControl>
+                                        <Input type="email" {...field} data-testid="input-email" />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                                <FormField
+                                  control={form.control}
+                                  name="role"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Роль</FormLabel>
+                                      <Select onValueChange={field.onChange} value={field.value}>
+                                        <FormControl>
+                                          <SelectTrigger data-testid="select-role">
+                                            <SelectValue placeholder="Выберите роль" />
+                                          </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                          <SelectItem value="admin">Администратор</SelectItem>
+                                          <SelectItem value="operator">Оператор</SelectItem>
+                                          <SelectItem value="monitor">Мониторинг</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                                <div className="flex justify-end space-x-2 pt-4">
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => {
+                                      setEditDialogOpen(false);
+                                      setEditingUser(null);
+                                      form.reset();
+                                    }}
+                                    data-testid="button-cancel-edit"
+                                  >
+                                    Отмена
+                                  </Button>
+                                  <Button
+                                    type="submit"
+                                    disabled={updateUserMutation.isPending}
+                                    data-testid="button-save-user"
+                                  >
+                                    {updateUserMutation.isPending ? "Сохранение..." : "Сохранить"}
+                                  </Button>
+                                </div>
+                              </form>
+                            </Form>
+                          </DialogContent>
+                        </Dialog>
                         {userData.id !== (user as any)?.id && (
                           <Button
                             variant="outline"
                             size="sm"
                             className="text-destructive hover:text-destructive"
+                            onClick={() => handleDeactivateUser(userData)}
+                            disabled={deactivateUserMutation.isPending}
                             data-testid={`button-deactivate-user-${userData.id}`}
                           >
                             <UserX className="w-4 h-4" />
@@ -229,8 +441,9 @@ export default function Users() {
                         )}
                       </div>
                     </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
 
