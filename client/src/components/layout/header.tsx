@@ -95,7 +95,20 @@ export default function Header({ onMenuToggle }: HeaderProps) {
             <DropdownMenuItem>Настройки</DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem 
-              onClick={() => window.location.href = '/api/logout'}
+              onClick={async () => {
+                try {
+                  const response = await fetch('/api/auth/logout', {
+                    method: 'POST',
+                    credentials: 'include'
+                  });
+                  if (response.ok) {
+                    window.location.reload();
+                  }
+                } catch (error) {
+                  console.error('Logout error:', error);
+                  window.location.reload();
+                }
+              }}
               data-testid="button-logout"
             >
               Выйти
