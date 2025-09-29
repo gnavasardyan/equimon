@@ -107,6 +107,23 @@ export default function Landing() {
     registrationMutation.mutate(data);
   };
 
+  // Switch to login mode and reset forms
+  const switchToLogin = () => {
+    setIsLogin(true);
+    setShowPassword(false);
+    loginForm.reset();
+    registrationForm.clearErrors();
+  };
+
+  // Switch to registration mode and reset forms
+  const switchToRegister = () => {
+    setIsLogin(false);
+    setShowPassword(false);
+    setCreateNewCompany(false);
+    registrationForm.reset();
+    loginForm.clearErrors();
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-accent/5">
       <div className="container mx-auto px-4 py-8">
@@ -179,7 +196,7 @@ export default function Landing() {
                   <Button
                     variant={isLogin ? "default" : "ghost"}
                     className="flex-1"
-                    onClick={() => setIsLogin(true)}
+                    onClick={switchToLogin}
                     data-testid="button-switch-login"
                   >
                     Вход
@@ -187,7 +204,7 @@ export default function Landing() {
                   <Button
                     variant={!isLogin ? "default" : "ghost"}
                     className="flex-1"
-                    onClick={() => setIsLogin(false)}
+                    onClick={switchToRegister}
                     data-testid="button-switch-register"
                   >
                     Регистрация
