@@ -1,0 +1,142 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: hsl(0 0% 98%);
+  --foreground: hsl(213 26% 13%);
+  --card: hsl(0 0% 100%);
+  --card-foreground: hsl(213 26% 13%);
+  --popover: hsl(0 0% 100%);
+  --popover-foreground: hsl(213 26% 13%);
+  --primary: hsl(213 73% 38%);
+  --primary-foreground: hsl(0 0% 98%);
+  --secondary: hsl(204 100% 62%);
+  --secondary-foreground: hsl(0 0% 98%);
+  --muted: hsl(210 11% 96%);
+  --muted-foreground: hsl(213 5% 46%);
+  --accent: hsl(204 86% 53%);
+  --accent-foreground: hsl(0 0% 98%);
+  --destructive: hsl(4 66% 54%);
+  --destructive-foreground: hsl(0 0% 98%);
+  --border: hsl(213 12% 92%);
+  --input: hsl(213 12% 92%);
+  --ring: hsl(213 73% 38%);
+  --chart-1: hsl(213 73% 38%);
+  --chart-2: hsl(204 86% 53%);
+  --chart-3: hsl(42 93% 56%);
+  --chart-4: hsl(147 78% 42%);
+  --chart-5: hsl(341 75% 51%);
+  --sidebar: hsl(0 0% 100%);
+  --sidebar-foreground: hsl(213 26% 13%);
+  --sidebar-primary: hsl(213 73% 38%);
+  --sidebar-primary-foreground: hsl(0 0% 98%);
+  --sidebar-accent: hsl(204 86% 53%);
+  --sidebar-accent-foreground: hsl(0 0% 98%);
+  --sidebar-border: hsl(213 12% 92%);
+  --sidebar-ring: hsl(213 73% 38%);
+  --font-sans: 'Inter', sans-serif;
+  --font-serif: Georgia, serif;
+  --font-mono: Menlo, monospace;
+  --radius: 8px;
+  --shadow-2xs: 0px 2px 0px 0px hsl(213 73% 38% / 0.00);
+  --shadow-xs: 0px 2px 0px 0px hsl(213 73% 38% / 0.00);
+  --shadow-sm: 0px 2px 0px 0px hsl(213 73% 38% / 0.00), 0px 1px 2px -1px hsl(213 73% 38% / 0.00);
+  --shadow: 0px 2px 0px 0px hsl(213 73% 38% / 0.00), 0px 1px 2px -1px hsl(213 73% 38% / 0.00);
+  --shadow-md: 0px 2px 0px 0px hsl(213 73% 38% / 0.00), 0px 2px 4px -1px hsl(213 73% 38% / 0.00);
+  --shadow-lg: 0px 2px 0px 0px hsl(213 73% 38% / 0.00), 0px 4px 6px -1px hsl(213 73% 38% / 0.00);
+  --shadow-xl: 0px 2px 0px 0px hsl(213 73% 38% / 0.00), 0px 8px 10px -1px hsl(213 73% 38% / 0.00);
+  --shadow-2xl: 0px 2px 0px 0px hsl(213 73% 38% / 0.00);
+  --tracking-normal: 0em;
+  --spacing: 0.25rem;
+}
+
+.dark {
+  --background: hsl(0 0% 0%);
+  --foreground: hsl(200 7% 91%);
+  --card: hsl(228 10% 10%);
+  --card-foreground: hsl(0 0% 85%);
+  --popover: hsl(0 0% 0%);
+  --popover-foreground: hsl(200 7% 91%);
+  --primary: hsl(213 73% 45%);
+  --primary-foreground: hsl(0 0% 98%);
+  --secondary: hsl(195 15% 95%);
+  --secondary-foreground: hsl(213 26% 13%);
+  --muted: hsl(0 0% 9%);
+  --muted-foreground: hsl(210 3% 46%);
+  --accent: hsl(205 70% 8%);
+  --accent-foreground: hsl(213 73% 45%);
+  --destructive: hsl(4 66% 54%);
+  --destructive-foreground: hsl(0 0% 98%);
+  --border: hsl(210 5% 15%);
+  --input: hsl(208 28% 18%);
+  --ring: hsl(213 73% 38%);
+  --chart-1: hsl(213 73% 38%);
+  --chart-2: hsl(204 86% 53%);
+  --chart-3: hsl(42 93% 56%);
+  --chart-4: hsl(147 78% 42%);
+  --chart-5: hsl(341 75% 51%);
+  --sidebar: hsl(228 10% 10%);
+  --sidebar-foreground: hsl(0 0% 85%);
+  --sidebar-primary: hsl(213 73% 38%);
+  --sidebar-primary-foreground: hsl(0 0% 98%);
+  --sidebar-accent: hsl(205 70% 8%);
+  --sidebar-accent-foreground: hsl(213 73% 45%);
+  --sidebar-border: hsl(205 16% 26%);
+  --sidebar-ring: hsl(213 73% 38%);
+  --font-sans: 'Inter', sans-serif;
+  --font-serif: Georgia, serif;
+  --font-mono: Menlo, monospace;
+  --radius: 8px;
+  --shadow-2xs: 0px 2px 0px 0px hsl(213 73% 38% / 0.00);
+  --shadow-xs: 0px 2px 0px 0px hsl(213 73% 38% / 0.00);
+  --shadow-sm: 0px 2px 0px 0px hsl(213 73% 38% / 0.00), 0px 1px 2px -1px hsl(213 73% 38% / 0.00);
+  --shadow: 0px 2px 0px 0px hsl(213 73% 38% / 0.00), 0px 1px 2px -1px hsl(213 73% 38% / 0.00);
+  --shadow-md: 0px 2px 0px 0px hsl(213 73% 38% / 0.00), 0px 2px 4px -1px hsl(213 73% 38% / 0.00);
+  --shadow-lg: 0px 2px 0px 0px hsl(213 73% 38% / 0.00), 0px 4px 6px -1px hsl(213 73% 38% / 0.00);
+  --shadow-xl: 0px 2px 0px 0px hsl(213 73% 38% / 0.00), 0px 8px 10px -1px hsl(213 73% 38% / 0.00);
+  --shadow-2xl: 0px 2px 0px 0px hsl(213 73% 38% / 0.00);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+  }
+}
+
+.sidebar-transition {
+  transition: margin-left 0.3s ease-in-out;
+}
+
+.status-indicator {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 8px;
+}
+
+.status-active { 
+  background-color: #4CAF50; 
+}
+
+.status-warning { 
+  background-color: #FF9800; 
+}
+
+.status-error { 
+  background-color: #F44336; 
+}
+
+.status-inactive { 
+  background-color: #9E9E9E; 
+}
+
+.h-screen-minus-header {
+  height: calc(100vh - 4rem);
+}
