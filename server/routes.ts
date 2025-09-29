@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { createSession, requireAuth, requireRole, registerUser, loginUser, type AuthenticatedRequest } from "./auth";
-import { insertStationSchema, insertDeviceSchema, insertSensorDataSchema, insertAlertRuleSchema, userRegistrationSchema, userLoginSchema } from "@shared/schema";
+import { insertStationSchema, insertDeviceSchema, insertSensorDataSchema, insertAlertRuleSchema, insertUserSchema, userRegistrationSchema, userLoginSchema } from "@shared/schema";
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
