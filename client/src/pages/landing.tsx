@@ -380,10 +380,7 @@ export default function Landing() {
                             onClick={() => {
                               console.log("Switching to existing company mode");
                               setCreateNewCompany(false);
-                              registrationForm.setValue("companyId", "");
-                              registrationForm.setValue("newCompanyName", "");
                               registrationForm.clearErrors();
-                              console.log("Form state after switching:", registrationForm.formState);
                             }}
                             data-testid="button-existing-company"
                           >
@@ -397,10 +394,7 @@ export default function Landing() {
                             onClick={() => {
                               console.log("Switching to new company mode");
                               setCreateNewCompany(true);
-                              registrationForm.setValue("companyId", "");
-                              registrationForm.setValue("newCompanyName", "");
                               registrationForm.clearErrors();
-                              console.log("Form state after switching:", registrationForm.formState);
                             }}
                             data-testid="button-new-company"
                           >
@@ -445,29 +439,19 @@ export default function Landing() {
                         <FormField
                           control={registrationForm.control}
                           name="newCompanyName"
-                          render={({ field }) => {
-                            console.log("newCompanyName field:", field);
-                            return (
-                              <FormItem>
-                                <FormLabel>Название новой компании</FormLabel>
-                                <FormControl>
-                                  <Input
-                                    value={field.value || ""}
-                                    onChange={(e) => {
-                                      console.log("Input change:", e.target.value);
-                                      field.onChange(e.target.value);
-                                    }}
-                                    onBlur={field.onBlur}
-                                    name={field.name}
-                                    ref={field.ref}
-                                    placeholder="Введите название компании"
-                                    data-testid="input-company-name"
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            );
-                          }}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Название новой компании</FormLabel>
+                              <FormControl>
+                                <Input
+                                  {...field}
+                                  placeholder="Введите название компании"
+                                  data-testid="input-company-name"
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
                         />
                       )}
 
