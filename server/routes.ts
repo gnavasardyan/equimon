@@ -1,28 +1,97 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated } from "./replitAuth";
-import { insertStationSchema, insertDeviceSchema, insertSensorDataSchema, insertAlertRuleSchema, insertUserSchema } from "@shared/schema";
+import { createSession, requireAuth, requireRole, registerUser, loginUser, type AuthenticatedRequest } from "./auth";
+import { insertStationSchema, insertDeviceSchema, insertSensorDataSchema, insertAlertRuleSchema, userRegistrationSchema, userLoginSchema } from "@shared/schema";
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Auth middleware
-  await setupAuth(app);
+  // Setup session middleware
+  app.use(createSession());
 
   // Auth routes
-  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+  app.post('/api/auth/register', async (req, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      res.json(user);
+      const userData = userRegistrationSchema.parse(req.body);
+      const user = await registerUser(userData);
+      
+      // Set session
+      req.session.userId = user.id;
+      
+      res.status(201).json({
+        message: 'Пользователь успешно зарегистрирован',
+        user: {
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          role: user.role,
+          companyId: user.companyId,
+        }
+      });
+    } catch (error) {
+      console.error("Registration error:", error);
+      const message = error instanceof Error ? error.message : "Ошибка регистрации";
+      res.status(400).json({ message });
+    }
+  });
+
+  app.post('/api/auth/login', async (req, res) => {
+    try {
+      const credentials = userLoginSchema.parse(req.body);
+      const user = await loginUser(credentials);
+      
+      // Set session
+      req.session.userId = user.id;
+      
+      res.json({
+        message: 'Успешный вход в систему',
+        user: {
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          role: user.role,
+          companyId: user.companyId,
+        }
+      });
+    } catch (error) {
+      console.error("Login error:", error);
+      const message = error instanceof Error ? error.message : "Ошибка входа";
+      res.status(401).json({ message });
+    }
+  });
+
+  app.post('/api/auth/logout', (req, res) => {
+    req.session.destroy((err) => {
+      if (err) {
+        console.error("Logout error:", err);
+        return res.status(500).json({ message: "Ошибка выхода" });
+      }
+      res.clearCookie('connect.sid'); // Clear session cookie
+      res.json({ message: 'Успешный выход из системы' });
+    });
+  });
+
+  app.get('/api/auth/user', requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const user = req.user!;
+      res.json({
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role,
+        companyId: user.companyId,
+      });
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
     }
   });
 
-  // Registration routes
-  app.get('/api/v1/companies', isAuthenticated, async (req: any, res) => {
+  // Company routes
+  app.get('/api/v1/companies', async (req, res) => {
     try {
       const companies = await storage.getAllCompanies();
       res.json(companies);
@@ -32,51 +101,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/v1/auth/complete-registration', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const { companyId, role, newCompanyName } = req.body;
-
-      if (!role || !['admin', 'operator', 'monitor'].includes(role)) {
-        return res.status(400).json({ message: "Invalid role specified" });
-      }
-
-      let finalCompanyId = companyId;
-
-      // Create new company if needed
-      if (newCompanyName && !companyId) {
-        const newCompany = await storage.createCompany({
-          name: newCompanyName,
-          licenseType: 'basic',
-          maxStations: 10,
-          isActive: true
-        });
-        finalCompanyId = newCompany.id;
-      }
-
-      if (!finalCompanyId) {
-        return res.status(400).json({ message: "Company ID or new company name required" });
-      }
-
-      // Update user with company and role
-      const updatedUser = await storage.updateUser(userId, {
-        companyId: finalCompanyId,
-        role,
-        updatedAt: new Date()
-      });
-
-      res.json(updatedUser);
-    } catch (error) {
-      console.error("Error completing registration:", error);
-      res.status(500).json({ message: "Failed to complete registration" });
-    }
-  });
-
   // Dashboard routes
-  app.get('/api/v1/dashboard/stats', isAuthenticated, async (req: any, res) => {
+  app.get('/api/v1/dashboard/stats', requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
-      if (!user?.companyId) {
+      const user = req.user!;
+      if (!user.companyId) {
         return res.status(400).json({ message: "User not associated with a company" });
       }
 
@@ -89,10 +118,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Station routes
-  app.get('/api/v1/stations', isAuthenticated, async (req: any, res) => {
+  app.get('/api/v1/stations', requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
-      if (!user?.companyId) {
+      const user = req.user!;
+      if (!user.companyId) {
         return res.status(400).json({ message: "User not associated with a company" });
       }
 
@@ -104,9 +133,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/v1/stations/activate', isAuthenticated, async (req: any, res) => {
+  app.post('/api/v1/stations/activate', requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
+      const user = await storage.getUser(req.user!.id);
       if (!user?.companyId) {
         return res.status(400).json({ message: "User not associated with a company" });
       }
@@ -138,9 +167,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/v1/stations/:id', isAuthenticated, async (req: any, res) => {
+  app.get('/api/v1/stations/:id', requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
+      const user = await storage.getUser(req.user!.id);
       if (!user?.companyId) {
         return res.status(400).json({ message: "User not associated with a company" });
       }
@@ -157,9 +186,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/v1/stations/:id/devices', isAuthenticated, async (req: any, res) => {
+  app.get('/api/v1/stations/:id/devices', requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
+      const user = await storage.getUser(req.user!.id);
       if (!user?.companyId) {
         return res.status(400).json({ message: "User not associated with a company" });
       }
@@ -177,9 +206,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/v1/stations/:id/data', isAuthenticated, async (req: any, res) => {
+  app.get('/api/v1/stations/:id/data', requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
+      const user = await storage.getUser(req.user!.id);
       if (!user?.companyId) {
         return res.status(400).json({ message: "User not associated with a company" });
       }
@@ -208,9 +237,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Station update route
-  app.put('/api/v1/stations/:id', isAuthenticated, async (req: any, res) => {
+  app.put('/api/v1/stations/:id', requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
+      const user = await storage.getUser(req.user!.id);
       if (!user?.companyId) {
         return res.status(400).json({ message: "User not associated with a company" });
       }
@@ -239,9 +268,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Station delete route (admin only)
-  app.delete('/api/v1/stations/:id', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/v1/stations/:id', requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
+      const user = await storage.getUser(req.user!.id);
       if (!user?.companyId) {
         return res.status(400).json({ message: "User not associated with a company" });
       }
@@ -268,9 +297,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Device routes
-  app.post('/api/v1/devices', isAuthenticated, async (req: any, res) => {
+  app.post('/api/v1/devices', requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
+      const user = await storage.getUser(req.user!.id);
       if (!user?.companyId) {
         return res.status(400).json({ message: "User not associated with a company" });
       }
@@ -299,7 +328,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Sensor data routes
-  app.post('/api/v1/sensor-data', isAuthenticated, async (req: any, res) => {
+  app.post('/api/v1/sensor-data', requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const sensorDataArray = Array.isArray(req.body) ? req.body : [req.body];
       const results = [];
@@ -321,9 +350,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Alert routes
-  app.get('/api/v1/alerts', isAuthenticated, async (req: any, res) => {
+  app.get('/api/v1/alerts', requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
+      const user = await storage.getUser(req.user!.id);
       if (!user?.companyId) {
         return res.status(400).json({ message: "User not associated with a company" });
       }
@@ -337,9 +366,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/v1/alerts/:id/resolve', isAuthenticated, async (req: any, res) => {
+  app.post('/api/v1/alerts/:id/resolve', requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
+      const user = await storage.getUser(req.user!.id);
       if (!user || user.role === 'monitor') {
         return res.status(403).json({ message: "Insufficient permissions" });
       }
@@ -353,9 +382,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Alert rules routes
-  app.get('/api/v1/alert-rules', isAuthenticated, async (req: any, res) => {
+  app.get('/api/v1/alert-rules', requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
+      const user = await storage.getUser(req.user!.id);
       if (!user?.companyId) {
         return res.status(400).json({ message: "User not associated with a company" });
       }
@@ -368,9 +397,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/v1/alert-rules', isAuthenticated, async (req: any, res) => {
+  app.post('/api/v1/alert-rules', requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
+      const user = await storage.getUser(req.user!.id);
       if (!user?.companyId) {
         return res.status(400).json({ message: "User not associated with a company" });
       }
@@ -396,9 +425,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // User management routes (admin only)
-  app.get('/api/v1/users', isAuthenticated, async (req: any, res) => {
+  app.get('/api/v1/users', requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
+      const user = await storage.getUser(req.user!.id);
       if (!user || user.role !== 'admin') {
         return res.status(403).json({ message: "Insufficient permissions" });
       }
@@ -415,9 +444,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put('/api/v1/users/:id', isAuthenticated, async (req: any, res) => {
+  app.put('/api/v1/users/:id', requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
+      const user = await storage.getUser(req.user!.id);
       if (!user || user.role !== 'admin') {
         return res.status(403).json({ message: "Insufficient permissions" });
       }
@@ -441,9 +470,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/v1/users/:id/deactivate', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/v1/users/:id/deactivate', requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
+      const user = await storage.getUser(req.user!.id);
       if (!user || user.role !== 'admin') {
         return res.status(403).json({ message: "Insufficient permissions" });
       }
@@ -468,9 +497,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Data search route
-  app.get('/api/v1/data/search', isAuthenticated, async (req: any, res) => {
+  app.get('/api/v1/data/search', requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
+      const user = await storage.getUser(req.user!.id);
       if (!user?.companyId) {
         return res.status(400).json({ message: "User not associated with a company" });
       }
