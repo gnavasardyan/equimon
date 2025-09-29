@@ -10,6 +10,21 @@ const sessionTtl = 30 * 24 * 60 * 60 * 1000; // 30 days
 export function createSession() {
   const sessionSecret = process.env.SESSION_SECRET;
   if (!sessionSecret) {
+    // In development, use a fallback secret if SESSION_SECRET is not available
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('SESSION_SECRET not found, using development fallback');
+      const fallbackSecret = 'dev-fallback-secret-' + Math.random().toString(36);
+      return session({
+        secret: fallbackSecret,
+        resave: false,
+        saveUninitialized: false,
+        cookie: {
+          httpOnly: true,
+          secure: false, // false for development
+          maxAge: sessionTtl,
+        },
+      });
+    }
     throw new Error('SESSION_SECRET environment variable is required');
   }
 
