@@ -5,7 +5,6 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
 import Landing from "@/pages/landing";
-import Register from "@/pages/register";
 import Dashboard from "@/pages/dashboard";
 import Stations from "@/pages/stations";
 import Users from "@/pages/users";
@@ -14,27 +13,30 @@ import type { User } from "@shared/schema";
 
 function Router() {
   const { user, isAuthenticated, isLoading } = useAuth();
-  const typedUser = user as User;
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p>Загрузка...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <Switch>
-      {isLoading ? (
+      {!isAuthenticated ? (
+        // Not authenticated - show landing page with login/register forms
         <Route path="/" component={Landing} />
-      ) : !isAuthenticated ? (
-        <Route path="/" component={Landing} />
-      ) : !typedUser?.companyId ? (
-        // Authenticated but no company - redirect to registration
-        <>
-          <Route path="/register" component={Register} />
-          <Route path="/" component={Register} />
-        </>
       ) : (
-        // Fully registered user
+        // Authenticated user - show main application
         <>
           <Route path="/" component={Dashboard} />
           <Route path="/stations" component={Stations} />
           <Route path="/users" component={Users} />
-          <Route path="/register" component={Register} />
         </>
       )}
       <Route component={NotFound} />

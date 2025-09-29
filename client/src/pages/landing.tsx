@@ -393,7 +393,7 @@ export default function Landing() {
                                 </FormControl>
                                 <SelectContent>
                                   {companiesLoading ? (
-                                    <SelectItem value="" disabled>Загрузка...</SelectItem>
+                                    <SelectItem value="loading" disabled>Загрузка...</SelectItem>
                                   ) : companies && companies.length > 0 ? (
                                     companies.map((company) => (
                                       <SelectItem key={company.id} value={company.id}>
@@ -401,7 +401,7 @@ export default function Landing() {
                                       </SelectItem>
                                     ))
                                   ) : (
-                                    <SelectItem value="" disabled>Компании не найдены</SelectItem>
+                                    <SelectItem value="no-companies" disabled>Компании не найдены</SelectItem>
                                   )}
                                 </SelectContent>
                               </Select>
