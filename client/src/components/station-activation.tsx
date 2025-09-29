@@ -75,20 +75,41 @@ export default function StationActivation({ onActivationSuccess }: StationActiva
 
   // Cleanup function for stopping camera
   const stopScanning = () => {
-    if (codeReaderRef.current) {
-      codeReaderRef.current.reset();
+    if (codeReaderRef.current && videoRef.current) {
+      try {
+        // Stop all tracks to properly close camera
+        if (videoRef.current.srcObject) {
+          const stream = videoRef.current.srcObject as MediaStream;
+          stream.getTracks().forEach(track => track.stop());
+        }
+        videoRef.current.srcObject = null;
+      } catch (error) {
+        console.log("Camera cleanup error:", error);
+      }
     }
     setIsScanning(false);
     setCameraReady(false);
     setMode(null);
   };
 
-  // Initialize QR code scanner
+  // Initialize QR code scanner (with fallback stub)
   const startScanning = async () => {
     try {
       setMode('qr');
       setIsScanning(true);
       
+      // For now, show a placeholder message instead of camera scanning
+      toast({
+        title: "QR-сканер",
+        description: "Функция сканирования QR-кода будет доступна в ближайшее время. Пожалуйста, используйте ручной ввод UUID.",
+      });
+      
+      setIsScanning(false);
+      setMode('manual');
+      return;
+      
+      // Original camera code (commented out to prevent errors)
+      /*
       if (!codeReaderRef.current) {
         codeReaderRef.current = new BrowserQRCodeReader();
       }
@@ -97,6 +118,7 @@ export default function StationActivation({ onActivationSuccess }: StationActiva
       if (devices.length === 0) {
         throw new Error("Камера не найдена");
       }
+      */
 
       // Use the first available camera (usually back camera on mobile)
       const selectedDeviceId = devices[0].deviceId;
