@@ -214,7 +214,7 @@ export default function Landing() {
               <CardContent>
                 {isLogin ? (
                   /* Login Form */
-                  <Form {...loginForm}>
+                  <Form {...loginForm} key="login-form">
                     <form onSubmit={loginForm.handleSubmit(onLogin)} className="space-y-4">
                       <FormField
                         control={loginForm.control}
@@ -278,7 +278,7 @@ export default function Landing() {
                   </Form>
                 ) : (
                   /* Registration Form */
-                  <Form {...registrationForm}>
+                  <Form {...registrationForm} key="registration-form">
                     <form onSubmit={registrationForm.handleSubmit(onRegister)} className="space-y-4">
                       <div className="grid grid-cols-2 gap-4">
                         <FormField
