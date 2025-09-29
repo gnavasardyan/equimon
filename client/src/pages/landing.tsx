@@ -376,7 +376,12 @@ export default function Landing() {
                             type="button"
                             variant={!createNewCompany ? "default" : "outline"}
                             className="flex-1"
-                            onClick={() => setCreateNewCompany(false)}
+                            onClick={() => {
+                              setCreateNewCompany(false);
+                              registrationForm.setValue("companyId", "");
+                              registrationForm.setValue("newCompanyName", "");
+                              registrationForm.clearErrors();
+                            }}
                             data-testid="button-existing-company"
                           >
                             <Building className="w-4 h-4 mr-2" />
@@ -386,7 +391,12 @@ export default function Landing() {
                             type="button"
                             variant={createNewCompany ? "default" : "outline"}
                             className="flex-1"
-                            onClick={() => setCreateNewCompany(true)}
+                            onClick={() => {
+                              setCreateNewCompany(true);
+                              registrationForm.setValue("companyId", "");
+                              registrationForm.setValue("newCompanyName", "");
+                              registrationForm.clearErrors();
+                            }}
                             data-testid="button-new-company"
                           >
                             <Users className="w-4 h-4 mr-2" />
