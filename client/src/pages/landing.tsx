@@ -83,7 +83,15 @@ export default function Landing() {
               <Button 
                 size="lg" 
                 className="w-full"
-                onClick={() => window.location.href = '/api/login'}
+                onClick={() => {
+                  try {
+                    window.open('/api/login', '_self');
+                  } catch (error) {
+                    console.error('Login error:', error);
+                    // Fallback
+                    window.location.assign('/api/login');
+                  }
+                }}
                 data-testid="button-login"
               >
                 Войти в систему
