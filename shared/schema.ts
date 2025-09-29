@@ -234,6 +234,23 @@ export const userRegistrationSchema = z.object({
   companyId: z.string().optional(),
   newCompanyName: z.string().optional(),
   role: z.enum(['admin', 'operator', 'monitor']).default('monitor'),
+}).superRefine((data, ctx) => {
+  // If creating a new company, require newCompanyName
+  if (!data.companyId && !data.newCompanyName) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Выберите существующую компанию или введите название новой",
+      path: ['companyId'],
+    });
+  }
+  // If newCompanyName is provided, companyId should be empty
+  if (data.newCompanyName && data.companyId) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Нельзя одновременно выбирать компанию и создавать новую",
+      path: ['companyId'],
+    });
+  }
 });
 
 export const userLoginSchema = z.object({

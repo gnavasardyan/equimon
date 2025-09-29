@@ -32,6 +32,7 @@ export default function Landing() {
   // Registration form
   const registrationForm = useForm<UserRegistration>({
     resolver: zodResolver(userRegistrationSchema),
+    mode: "onSubmit", // Only validate on submit to avoid blocking input
     defaultValues: {
       email: "",
       firstName: "",
@@ -377,10 +378,12 @@ export default function Landing() {
                             variant={!createNewCompany ? "default" : "outline"}
                             className="flex-1"
                             onClick={() => {
+                              console.log("Switching to existing company mode");
                               setCreateNewCompany(false);
                               registrationForm.setValue("companyId", "");
                               registrationForm.setValue("newCompanyName", "");
                               registrationForm.clearErrors();
+                              console.log("Form state after switching:", registrationForm.formState);
                             }}
                             data-testid="button-existing-company"
                           >
@@ -392,10 +395,12 @@ export default function Landing() {
                             variant={createNewCompany ? "default" : "outline"}
                             className="flex-1"
                             onClick={() => {
+                              console.log("Switching to new company mode");
                               setCreateNewCompany(true);
                               registrationForm.setValue("companyId", "");
                               registrationForm.setValue("newCompanyName", "");
                               registrationForm.clearErrors();
+                              console.log("Form state after switching:", registrationForm.formState);
                             }}
                             data-testid="button-new-company"
                           >
