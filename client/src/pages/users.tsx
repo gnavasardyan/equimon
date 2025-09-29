@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { useQuery, useMutation, queryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import Header from "@/components/layout/header";
 import Sidebar from "@/components/layout/sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -102,11 +102,8 @@ export default function Users() {
   // User update mutation
   const updateUserMutation = useMutation({
     mutationFn: async ({ userId, data }: { userId: string; data: any }) => {
-      return await apiRequest(`/api/v1/users/${userId}`, {
-        method: 'PUT',
-        body: JSON.stringify(data),
-        headers: { 'Content-Type': 'application/json' }
-      });
+      const response = await apiRequest('PUT', `/api/v1/users/${userId}`, data);
+      return await response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/v1/users'] });
@@ -127,9 +124,8 @@ export default function Users() {
   // User deactivation mutation
   const deactivateUserMutation = useMutation({
     mutationFn: async (userId: string) => {
-      return await apiRequest(`/api/v1/users/${userId}/deactivate`, {
-        method: 'PATCH'
-      });
+      const response = await apiRequest('PATCH', `/api/v1/users/${userId}/deactivate`);
+      return await response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/v1/users'] });
