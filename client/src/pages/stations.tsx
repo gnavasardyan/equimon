@@ -7,6 +7,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import Header from "@/components/layout/header";
 import Sidebar from "@/components/layout/sidebar";
 import StationCard from "@/components/station-card";
+import StationActivation from "@/components/station-activation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,6 +42,7 @@ export default function Stations() {
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [activationDialogOpen, setActivationDialogOpen] = useState(false);
   const { user, isAuthenticated, isLoading } = useAuth();
   const { toast } = useToast();
 
@@ -232,7 +234,11 @@ export default function Stations() {
                 </div>
                 {(user as any)?.role !== 'monitor' && (
                   <div className="mt-4 sm:mt-0">
-                    <Button className="flex items-center space-x-2" data-testid="button-add-station">
+                    <Button 
+                      className="flex items-center space-x-2" 
+                      onClick={() => setActivationDialogOpen(true)}
+                      data-testid="button-add-station"
+                    >
                       <Plus className="w-4 h-4" />
                       <span>Добавить станцию</span>
                     </Button>
@@ -498,6 +504,21 @@ export default function Stations() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Station Activation Dialog */}
+      <Dialog open={activationDialogOpen} onOpenChange={setActivationDialogOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Добавить станцию</DialogTitle>
+            <DialogDescription>
+              Активируйте новую базовую станцию путем сканирования QR-кода или ввода UUID вручную
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <StationActivation onActivationSuccess={() => setActivationDialogOpen(false)} />
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

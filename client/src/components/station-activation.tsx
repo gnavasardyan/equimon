@@ -11,7 +11,11 @@ import { isUnauthorizedError } from "@/lib/authUtils";
 import { BrowserQRCodeReader } from "@zxing/browser";
 import { NotFoundException } from "@zxing/library";
 
-export default function StationActivation() {
+interface StationActivationProps {
+  onActivationSuccess?: () => void;
+}
+
+export default function StationActivation({ onActivationSuccess }: StationActivationProps = {}) {
   const [mode, setMode] = useState<'qr' | 'manual' | null>(null);
   const [uuid, setUuid] = useState("");
   const [isScanning, setIsScanning] = useState(false);
@@ -35,6 +39,7 @@ export default function StationActivation() {
       queryClient.invalidateQueries({ queryKey: ["/api/v1/dashboard/stats"] });
       setUuid("");
       setMode(null);
+      onActivationSuccess?.();
     },
     onError: (error) => {
       if (isUnauthorizedError(error)) {
