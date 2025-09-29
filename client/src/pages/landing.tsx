@@ -445,19 +445,29 @@ export default function Landing() {
                         <FormField
                           control={registrationForm.control}
                           name="newCompanyName"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Название новой компании</FormLabel>
-                              <FormControl>
-                                <Input
-                                  {...field}
-                                  placeholder="Введите название компании"
-                                  data-testid="input-company-name"
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
+                          render={({ field }) => {
+                            console.log("newCompanyName field:", field);
+                            return (
+                              <FormItem>
+                                <FormLabel>Название новой компании</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    value={field.value || ""}
+                                    onChange={(e) => {
+                                      console.log("Input change:", e.target.value);
+                                      field.onChange(e.target.value);
+                                    }}
+                                    onBlur={field.onBlur}
+                                    name={field.name}
+                                    ref={field.ref}
+                                    placeholder="Введите название компании"
+                                    data-testid="input-company-name"
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            );
+                          }}
                         />
                       )}
 
