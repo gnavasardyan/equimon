@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,6 +49,15 @@ export default function Landing() {
     queryKey: ["/api/v1/companies"],
     enabled: !isLogin && !createNewCompany
   });
+
+  // Force clear fields when switching company creation mode
+  useEffect(() => {
+    if (createNewCompany) {
+      registrationForm.setValue("companyId", "");
+    } else {
+      registrationForm.setValue("newCompanyName", "");
+    }
+  }, [createNewCompany, registrationForm]);
 
   // Login mutation
   const loginMutation = useMutation({
@@ -380,6 +389,7 @@ export default function Landing() {
                             onClick={() => {
                               console.log("Switching to existing company mode");
                               setCreateNewCompany(false);
+                              registrationForm.setValue("newCompanyName", "");
                               registrationForm.clearErrors();
                             }}
                             data-testid="button-existing-company"
@@ -394,6 +404,7 @@ export default function Landing() {
                             onClick={() => {
                               console.log("Switching to new company mode");
                               setCreateNewCompany(true);
+                              registrationForm.setValue("companyId", "");
                               registrationForm.clearErrors();
                             }}
                             data-testid="button-new-company"
