@@ -8,6 +8,7 @@ import Header from "@/components/layout/header";
 import Sidebar from "@/components/layout/sidebar";
 import StationCard from "@/components/station-card";
 import StationActivation from "@/components/station-activation";
+import StationCreateForm from "@/components/station-create-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Search, Eye, Edit, Trash2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -177,12 +179,13 @@ export default function Stations() {
       return;
     }
     setEditingStation(station);
+    const metadata = typeof station.metadata === 'string' ? JSON.parse(station.metadata || '{}') : (station.metadata || {});
     form.reset({
       name: station.name,
       location: station.location || "",
       metadata: {
-        type: station.metadata?.type || "",
-        floor: station.metadata?.floor
+        type: metadata.type || "",
+        floor: metadata.floor
       }
     });
     setEditDialogOpen(true);
@@ -505,18 +508,31 @@ export default function Stations() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Station Activation Dialog */}
+      {/* Station Activation/Creation Dialog */}
       <Dialog open={activationDialogOpen} onOpenChange={setActivationDialogOpen}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
             <DialogTitle>Добавить станцию</DialogTitle>
             <DialogDescription>
-              Активируйте новую базовую станцию путем сканирования QR-кода или ввода UUID вручную
+              Активируйте существующую станцию или создайте новую
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4">
-            <StationActivation onActivationSuccess={() => setActivationDialogOpen(false)} />
-          </div>
+          <Tabs defaultValue="activate" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="activate" data-testid="tab-activate-station">
+                Активировать существующую
+              </TabsTrigger>
+              <TabsTrigger value="create" data-testid="tab-create-station">
+                Создать новую
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value="activate" className="mt-4">
+              <StationActivation onActivationSuccess={() => setActivationDialogOpen(false)} />
+            </TabsContent>
+            <TabsContent value="create" className="mt-4">
+              <StationCreateForm onCreateSuccess={() => setActivationDialogOpen(false)} />
+            </TabsContent>
+          </Tabs>
         </DialogContent>
       </Dialog>
     </div>
