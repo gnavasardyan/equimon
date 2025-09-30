@@ -1,17 +1,22 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/useAuth";
 import MainLayout from "@/components/layout/main-layout";
+import DeviceCreateForm from "@/components/device-create-form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Cpu, Wifi, WifiOff, Search } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Cpu, Wifi, WifiOff, Search, Plus } from "lucide-react";
 import type { Device, Station } from "@shared/schema";
 
 export default function Devices() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [addDeviceDialogOpen, setAddDeviceDialogOpen] = useState(false);
+  const { user } = useAuth();
 
   // Fetch devices
   const { data: devices, isLoading: devicesLoading } = useQuery<Device[]>({
@@ -51,6 +56,15 @@ export default function Devices() {
               Управление подключенными устройствами и датчиками
             </p>
           </div>
+          {user?.role === 'admin' && (
+            <Button 
+              onClick={() => setAddDeviceDialogOpen(true)}
+              data-testid="button-add-device"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Добавить устройство
+            </Button>
+          )}
         </div>
 
         {/* Search and filters */}
@@ -153,6 +167,19 @@ export default function Devices() {
           </Card>
         )}
       </div>
+
+      {/* Add Device Dialog */}
+      <Dialog open={addDeviceDialogOpen} onOpenChange={setAddDeviceDialogOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Добавить устройство</DialogTitle>
+            <DialogDescription>
+              Добавьте новое устройство к активной базовой станции
+            </DialogDescription>
+          </DialogHeader>
+          <DeviceCreateForm onCreateSuccess={() => setAddDeviceDialogOpen(false)} />
+        </DialogContent>
+      </Dialog>
     </MainLayout>
   );
 }
