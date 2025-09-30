@@ -133,6 +133,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post('/api/v1/stations', requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const user = await storage.getUser(req.user!.id);
+      if (!user?.companyId) {
+        return res.status(400).json({ message: "User not associated with a company" });
+      }
+
+      if (user.role !== 'admin') {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+
+      // Generate UUID if not provided
+      const uuid = req.body.uuid || crypto.randomUUID();
+      
+      // Validate UUID format if provided
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(uuid)) {
+        return res.status(400).json({ message: "Invalid UUID format" });
+      }
+
+      // Check if UUID already exists
+      const existingStation = await storage.getStationByUuid(uuid);
+      if (existingStation) {
+        return res.status(400).json({ message: "Station with this UUID already exists" });
+      }
+
+      const stationData = insertStationSchema.parse({
+        ...req.body,
+        uuid,
+        companyId: user.companyId,
+        status: req.body.status || 'inactive',
+      });
+
+      const station = await storage.createStation(stationData);
+      res.status(201).json(station);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid input", errors: error.errors });
+      }
+      console.error("Error creating station:", error);
+      res.status(500).json({ message: "Failed to create station" });
+    }
+  });
+
   app.post('/api/v1/stations/activate', requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const user = await storage.getUser(req.user!.id);
@@ -319,20 +363,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "User not associated with a company" });
       }
 
-      if (user.role === 'monitor') {
+      if (user.role !== 'admin') {
         return res.status(403).json({ message: "Insufficient permissions" });
       }
 
       const deviceData = insertDeviceSchema.parse(req.body);
       
-      // Verify station belongs to user's company
+      // Verify station belongs to user's company and is active
       const station = await storage.getStation(deviceData.stationId);
       if (!station || station.companyId !== user.companyId) {
         return res.status(404).json({ message: "Station not found" });
       }
 
+      if (station.status === 'inactive') {
+        return res.status(400).json({ message: "Cannot add device to inactive station" });
+      }
+
       const device = await storage.createDevice(deviceData);
-      res.json(device);
+      res.status(201).json(device);
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid input", errors: error.errors });
