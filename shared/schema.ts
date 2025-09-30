@@ -1,125 +1,117 @@
 import { sql, relations } from 'drizzle-orm';
 import {
-  pgTable,
-  varchar,
+  sqliteTable,
   text,
-  timestamp,
-  jsonb,
-  boolean,
   integer,
-  decimal,
+  real,
   index,
-  pgEnum,
-} from "drizzle-orm/pg-core";
+} from "drizzle-orm/sqlite-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 // Session storage table for custom authentication
-export const sessions = pgTable(
+export const sessions = sqliteTable(
   "sessions",
   {
-    sid: varchar("sid").primaryKey(),
-    sess: jsonb("sess").notNull(),
-    expire: timestamp("expire").notNull(),
+    sid: text("sid").primaryKey(),
+    sess: text("sess").notNull(), // JSON as text
+    expire: integer("expire", { mode: 'timestamp' }).notNull(),
   },
-  (table) => [index("IDX_session_expire").on(table.expire)],
+  (table) => ({
+    expireIdx: index("IDX_session_expire").on(table.expire),
+  }),
 );
 
-// User roles enum
-export const userRoleEnum = pgEnum('user_role', ['admin', 'operator', 'monitor']);
-export const stationStatusEnum = pgEnum('station_status', ['active', 'inactive', 'error', 'pending']);
-export const alertLevelEnum = pgEnum('alert_level', ['info', 'warning', 'critical']);
-
 // Users table for custom authentication
-export const users = pgTable("users", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  email: varchar("email").unique().notNull(),
-  firstName: varchar("first_name"),
-  lastName: varchar("last_name"),
-  passwordHash: varchar("password_hash").notNull(),
-  role: userRoleEnum("role").default('monitor'),
-  companyId: varchar("company_id").references(() => companies.id),
-  isActive: boolean("is_active").default(true),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+export const users = sqliteTable("users", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  email: text("email").unique().notNull(),
+  firstName: text("first_name"),
+  lastName: text("last_name"),
+  passwordHash: text("password_hash").notNull(),
+  role: text("role").default('monitor').notNull(), // 'admin', 'operator', 'monitor'
+  companyId: text("company_id").references(() => companies.id),
+  isActive: integer("is_active", { mode: 'boolean' }).default(true),
+  createdAt: integer("created_at", { mode: 'timestamp' }).$defaultFn(() => new Date()),
+  updatedAt: integer("updated_at", { mode: 'timestamp' }).$defaultFn(() => new Date()),
 });
 
 // Companies table
-export const companies = pgTable("companies", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  name: varchar("name").notNull(),
-  licenseType: varchar("license_type").default('basic'),
+export const companies = sqliteTable("companies", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  name: text("name").notNull(),
+  licenseType: text("license_type").default('basic'),
   maxStations: integer("max_stations").default(10),
-  isActive: boolean("is_active").default(true),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+  isActive: integer("is_active", { mode: 'boolean' }).default(true),
+  createdAt: integer("created_at", { mode: 'timestamp' }).$defaultFn(() => new Date()),
+  updatedAt: integer("updated_at", { mode: 'timestamp' }).$defaultFn(() => new Date()),
 });
 
 // Base stations table
-export const stations = pgTable("stations", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  uuid: varchar("uuid").unique().notNull(),
-  name: varchar("name").notNull(),
-  location: varchar("location"),
-  companyId: varchar("company_id").references(() => companies.id),
-  status: stationStatusEnum("status").default('pending'),
-  lastSeen: timestamp("last_seen"),
-  metadata: jsonb("metadata"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+export const stations = sqliteTable("stations", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  uuid: text("uuid").unique().notNull(),
+  name: text("name").notNull(),
+  location: text("location"),
+  companyId: text("company_id").references(() => companies.id),
+  status: text("status").default('pending').notNull(), // 'active', 'inactive', 'error', 'pending'
+  lastSeen: integer("last_seen", { mode: 'timestamp' }),
+  metadata: text("metadata"), // JSON as text
+  createdAt: integer("created_at", { mode: 'timestamp' }).$defaultFn(() => new Date()),
+  updatedAt: integer("updated_at", { mode: 'timestamp' }).$defaultFn(() => new Date()),
 });
 
 // Devices table
-export const devices = pgTable("devices", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  stationId: varchar("station_id").references(() => stations.id).notNull(),
-  name: varchar("name").notNull(),
-  type: varchar("type").notNull(),
-  model: varchar("model"),
-  serialNumber: varchar("serial_number"),
-  status: varchar("status").default('active'),
-  metadata: jsonb("metadata"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+export const devices = sqliteTable("devices", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  stationId: text("station_id").references(() => stations.id).notNull(),
+  name: text("name").notNull(),
+  type: text("type").notNull(),
+  model: text("model"),
+  serialNumber: text("serial_number"),
+  status: text("status").default('active'),
+  metadata: text("metadata"), // JSON as text
+  createdAt: integer("created_at", { mode: 'timestamp' }).$defaultFn(() => new Date()),
+  updatedAt: integer("updated_at", { mode: 'timestamp' }).$defaultFn(() => new Date()),
 });
 
 // Sensor data table
-export const sensorData = pgTable("sensor_data", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  deviceId: varchar("device_id").references(() => devices.id).notNull(),
-  parameter: varchar("parameter").notNull(),
-  value: decimal("value").notNull(),
-  unit: varchar("unit"),
-  timestamp: timestamp("timestamp").defaultNow(),
-  metadata: jsonb("metadata"),
+export const sensorData = sqliteTable("sensor_data", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  deviceId: text("device_id").references(() => devices.id).notNull(),
+  parameter: text("parameter").notNull(),
+  value: real("value").notNull(),
+  unit: text("unit"),
+  timestamp: integer("timestamp", { mode: 'timestamp' }).$defaultFn(() => new Date()),
+  metadata: text("metadata"), // JSON as text
 });
 
 // Alerts table
-export const alerts = pgTable("alerts", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  stationId: varchar("station_id").references(() => stations.id),
-  deviceId: varchar("device_id").references(() => devices.id),
-  title: varchar("title").notNull(),
+export const alerts = sqliteTable("alerts", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  stationId: text("station_id").references(() => stations.id),
+  deviceId: text("device_id").references(() => devices.id),
+  title: text("title").notNull(),
   description: text("description"),
-  level: alertLevelEnum("level").default('info'),
-  isResolved: boolean("is_resolved").default(false),
-  resolvedAt: timestamp("resolved_at"),
-  resolvedBy: varchar("resolved_by").references(() => users.id),
-  createdAt: timestamp("created_at").defaultNow(),
+  level: text("level").default('info').notNull(), // 'info', 'warning', 'critical'
+  isResolved: integer("is_resolved", { mode: 'boolean' }).default(false),
+  resolvedAt: integer("resolved_at", { mode: 'timestamp' }),
+  resolvedBy: text("resolved_by").references(() => users.id),
+  createdAt: integer("created_at", { mode: 'timestamp' }).$defaultFn(() => new Date()),
 });
 
 // Alert rules table
-export const alertRules = pgTable("alert_rules", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  name: varchar("name").notNull(),
-  companyId: varchar("company_id").references(() => companies.id).notNull(),
-  parameter: varchar("parameter").notNull(),
-  condition: varchar("condition").notNull(), // >, <, =, etc.
-  threshold: decimal("threshold").notNull(),
-  level: alertLevelEnum("level").default('warning'),
-  isActive: boolean("is_active").default(true),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+export const alertRules = sqliteTable("alert_rules", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  name: text("name").notNull(),
+  companyId: text("company_id").references(() => companies.id).notNull(),
+  parameter: text("parameter").notNull(),
+  condition: text("condition").notNull(), // >, <, =, etc.
+  threshold: real("threshold").notNull(),
+  level: text("level").default('warning').notNull(), // 'info', 'warning', 'critical'
+  isActive: integer("is_active", { mode: 'boolean' }).default(true),
+  createdAt: integer("created_at", { mode: 'timestamp' }).$defaultFn(() => new Date()),
+  updatedAt: integer("updated_at", { mode: 'timestamp' }).$defaultFn(() => new Date()),
 });
 
 // Relations
