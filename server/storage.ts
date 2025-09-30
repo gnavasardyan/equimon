@@ -50,6 +50,7 @@ export interface IStorage {
   
   // Device operations
   getDevices(stationId: string): Promise<Device[]>;
+  getAllCompanyDevices(companyId: string): Promise<Device[]>;
   getDevice(id: string): Promise<Device | undefined>;
   createDevice(device: InsertDevice): Promise<Device>;
   updateDevice(id: string, data: Partial<InsertDevice>): Promise<Device>;
@@ -212,6 +213,26 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(devices)
       .where(eq(devices.stationId, stationId))
+      .orderBy(desc(devices.updatedAt));
+  }
+
+  async getAllCompanyDevices(companyId: string): Promise<Device[]> {
+    return await db
+      .select({
+        id: devices.id,
+        stationId: devices.stationId,
+        name: devices.name,
+        type: devices.type,
+        model: devices.model,
+        serialNumber: devices.serialNumber,
+        status: devices.status,
+        metadata: devices.metadata,
+        createdAt: devices.createdAt,
+        updatedAt: devices.updatedAt,
+      })
+      .from(devices)
+      .innerJoin(stations, eq(devices.stationId, stations.id))
+      .where(eq(stations.companyId, companyId))
       .orderBy(desc(devices.updatedAt));
   }
 

@@ -186,6 +186,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/v1/devices', requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const user = await storage.getUser(req.user!.id);
+      if (!user?.companyId) {
+        return res.status(400).json({ message: "User not associated with a company" });
+      }
+
+      const devices = await storage.getAllCompanyDevices(user.companyId);
+      res.json(devices);
+    } catch (error) {
+      console.error("Error fetching devices:", error);
+      res.status(500).json({ message: "Failed to fetch devices" });
+    }
+  });
+
   app.get('/api/v1/stations/:id/devices', requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const user = await storage.getUser(req.user!.id);
