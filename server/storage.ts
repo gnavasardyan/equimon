@@ -92,26 +92,27 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createUser(user: Omit<UpsertUser, 'id' | 'createdAt' | 'updatedAt'>): Promise<User> {
-    const [created] = await db.insert(users).values({
+    const id = crypto.randomUUID();
+    await db.insert(users).values({
+      id,
       ...user,
       createdAt: new Date(),
       updatedAt: new Date(),
-    }).returning();
+    });
+    const [created] = await db.select().from(users).where(eq(users.id, id));
     return created;
   }
 
   async upsertUser(userData: UpsertUser): Promise<User> {
-    const [user] = await db
-      .insert(users)
-      .values(userData)
-      .onConflictDoUpdate({
-        target: users.id,
-        set: {
-          ...userData,
-          updatedAt: new Date(),
-        },
-      })
-      .returning();
+    const existing = await this.getUser(userData.id);
+    if (existing) {
+      await db.update(users)
+        .set({ ...userData, updatedAt: new Date() })
+        .where(eq(users.id, userData.id));
+    } else {
+      await db.insert(users).values(userData);
+    }
+    const [user] = await db.select().from(users).where(eq(users.id, userData.id));
     return user;
   }
 
@@ -124,20 +125,20 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateUser(id: string, data: Partial<UpsertUser>): Promise<User> {
-    const [updated] = await db
+    await db
       .update(users)
       .set({ ...data, updatedAt: new Date() })
-      .where(eq(users.id, id))
-      .returning();
+      .where(eq(users.id, id));
+    const [updated] = await db.select().from(users).where(eq(users.id, id));
     return updated;
   }
 
   async deactivateUser(id: string): Promise<User> {
-    const [updated] = await db
+    await db
       .update(users)
       .set({ isActive: false, updatedAt: new Date() })
-      .where(eq(users.id, id))
-      .returning();
+      .where(eq(users.id, id));
+    const [updated] = await db.select().from(users).where(eq(users.id, id));
     return updated;
   }
 
@@ -152,7 +153,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createCompany(company: InsertCompany): Promise<Company> {
-    const [created] = await db.insert(companies).values(company).returning();
+    const id = crypto.randomUUID();
+    await db.insert(companies).values({
+      id,
+      ...company,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    const [created] = await db.select().from(companies).where(eq(companies.id, id));
     return created;
   }
 
@@ -176,16 +184,23 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createStation(station: InsertStation): Promise<Station> {
-    const [created] = await db.insert(stations).values(station).returning();
+    const id = crypto.randomUUID();
+    await db.insert(stations).values({
+      id,
+      ...station,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    const [created] = await db.select().from(stations).where(eq(stations.id, id));
     return created;
   }
 
   async updateStation(id: string, data: Partial<InsertStation>): Promise<Station> {
-    const [updated] = await db
+    await db
       .update(stations)
       .set({ ...data, updatedAt: new Date() })
-      .where(eq(stations.id, id))
-      .returning();
+      .where(eq(stations.id, id));
+    const [updated] = await db.select().from(stations).where(eq(stations.id, id));
     return updated;
   }
 
@@ -194,7 +209,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async activateStation(uuid: string, companyId: string): Promise<Station> {
-    const [station] = await db
+    await db
       .update(stations)
       .set({ 
         companyId, 
@@ -202,8 +217,8 @@ export class DatabaseStorage implements IStorage {
         updatedAt: new Date(),
         lastSeen: new Date()
       })
-      .where(eq(stations.uuid, uuid))
-      .returning();
+      .where(eq(stations.uuid, uuid));
+    const [station] = await db.select().from(stations).where(eq(stations.uuid, uuid));
     return station;
   }
 
@@ -242,22 +257,35 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createDevice(device: InsertDevice): Promise<Device> {
-    const [created] = await db.insert(devices).values(device).returning();
+    const id = crypto.randomUUID();
+    await db.insert(devices).values({
+      id,
+      ...device,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    const [created] = await db.select().from(devices).where(eq(devices.id, id));
     return created;
   }
 
   async updateDevice(id: string, data: Partial<InsertDevice>): Promise<Device> {
-    const [updated] = await db
+    await db
       .update(devices)
       .set({ ...data, updatedAt: new Date() })
-      .where(eq(devices.id, id))
-      .returning();
+      .where(eq(devices.id, id));
+    const [updated] = await db.select().from(devices).where(eq(devices.id, id));
     return updated;
   }
 
   // Sensor data operations
   async insertSensorData(data: InsertSensorData): Promise<SensorData> {
-    const [created] = await db.insert(sensorData).values(data).returning();
+    const id = crypto.randomUUID();
+    await db.insert(sensorData).values({
+      id,
+      ...data,
+      timestamp: new Date(),
+    });
+    const [created] = await db.select().from(sensorData).where(eq(sensorData.id, id));
     return created;
   }
 
@@ -316,20 +344,26 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createAlert(alert: InsertAlert): Promise<Alert> {
-    const [created] = await db.insert(alerts).values(alert).returning();
+    const id = crypto.randomUUID();
+    await db.insert(alerts).values({
+      id,
+      ...alert,
+      createdAt: new Date(),
+    });
+    const [created] = await db.select().from(alerts).where(eq(alerts.id, id));
     return created;
   }
 
   async resolveAlert(id: string, userId: string): Promise<Alert> {
-    const [resolved] = await db
+    await db
       .update(alerts)
       .set({ 
         isResolved: true, 
         resolvedAt: new Date(),
         resolvedBy: userId 
       })
-      .where(eq(alerts.id, id))
-      .returning();
+      .where(eq(alerts.id, id));
+    const [resolved] = await db.select().from(alerts).where(eq(alerts.id, id));
     return resolved;
   }
 
@@ -343,16 +377,23 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createAlertRule(rule: InsertAlertRule): Promise<AlertRule> {
-    const [created] = await db.insert(alertRules).values(rule).returning();
+    const id = crypto.randomUUID();
+    await db.insert(alertRules).values({
+      id,
+      ...rule,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    const [created] = await db.select().from(alertRules).where(eq(alertRules.id, id));
     return created;
   }
 
   async updateAlertRule(id: string, data: Partial<InsertAlertRule>): Promise<AlertRule> {
-    const [updated] = await db
+    await db
       .update(alertRules)
       .set({ ...data, updatedAt: new Date() })
-      .where(eq(alertRules.id, id))
-      .returning();
+      .where(eq(alertRules.id, id));
+    const [updated] = await db.select().from(alertRules).where(eq(alertRules.id, id));
     return updated;
   }
 
