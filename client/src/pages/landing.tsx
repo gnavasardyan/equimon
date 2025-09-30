@@ -50,15 +50,6 @@ export default function Landing() {
     enabled: !isLogin && !createNewCompany
   });
 
-  // Force clear fields when switching company creation mode
-  useEffect(() => {
-    if (createNewCompany) {
-      registrationForm.setValue("companyId", "");
-    } else {
-      registrationForm.setValue("newCompanyName", "");
-    }
-  }, [createNewCompany, registrationForm]);
-
   // Login mutation
   const loginMutation = useMutation({
     mutationFn: async (data: UserLogin) => {
@@ -417,6 +408,7 @@ export default function Landing() {
 
                       {!createNewCompany ? (
                         <FormField
+                          key="existing-company"
                           control={registrationForm.control}
                           name="companyId"
                           render={({ field }) => (
@@ -448,6 +440,7 @@ export default function Landing() {
                         />
                       ) : (
                         <FormField
+                          key="new-company"
                           control={registrationForm.control}
                           name="newCompanyName"
                           render={({ field }) => (
